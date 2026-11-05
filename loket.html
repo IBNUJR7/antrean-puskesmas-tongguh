@@ -2,94 +2,113 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Panel Petugas - UPT Puskesmas Tongguh</title>
+    <title>Loket Petugas - UPT Puskesmas Tongguh</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-100 h-screen flex flex-col font-sans">
-    
-    <header class="bg-emerald-600 text-white py-4 px-8 shadow flex justify-between items-center">
-        <h1 class="text-xl font-bold">Panel Pemanggilan Petugas - Pendaftaran</h1>
-        <span id="sisa-antrian-badge" class="bg-emerald-700 px-3 py-1 rounded text-sm font-medium">Sisa: 0 Pasien</span>
+<body class="bg-slate-100 min-h-screen font-sans p-6">
+
+    <header class="max-w-4xl mx-auto bg-white p-6 rounded-2xl shadow mb-6 flex justify-between items-center border">
+        <div>
+            <h1 class="text-xl font-bold text-slate-800">Panel Loket Pendaftaran</h1>
+            <p class="text-xs text-slate-500">UPT Puskesmas Tongguh</p>
+        </div>
+        <button onclick="resetAntrian()" class="bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold px-4 py-2 rounded-xl transition">
+            🔄 Reset Antrean Hari Ini
+        </button>
     </header>
 
-    <main class="flex-1 p-8 max-w-lg mx-auto w-full flex flex-col justify-center space-y-6">
-        <div class="bg-white rounded-2xl shadow-xl p-8 border border-slate-200 text-center space-y-4">
-            <h2 class="text-slate-500 font-medium text-base">Nomor Sedang Dipanggil</h2>
-            <div id="current-called" class="text-7xl font-black text-emerald-600">-</div>
-            <div id="current-poli" class="text-sm font-bold text-slate-600 bg-slate-100 py-2 rounded-lg">Menunggu Pemanggilan</div>
+    <main class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white p-6 rounded-2xl shadow border flex flex-col justify-between text-center">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Sedang Dipanggil</span>
+            <div id="nomor-aktif" class="text-6xl font-black text-emerald-600 my-6">-</div>
+            <div id="poli-aktif" class="text-sm font-bold text-slate-600 bg-slate-100 py-2 rounded-xl mb-6">-</div>
             
-            <div class="grid grid-cols-2 gap-3 pt-2">
-                <button onclick="panggilNext()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg transition text-base">
-                    Panggil Berikutnya
+            <div class="space-y-3">
+                <button onclick="panggilBerikutnya()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl shadow transition cursor-pointer">
+                    📢 Panggil Berikutnya
                 </button>
-                <button onclick="panggilUlang()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 rounded-xl shadow-lg transition text-base">
-                    Panggil Ulang
+                <button onclick="panggilUlang()" class="w-full bg-amber-500 hover:bg-amber-400 text-white font-bold py-3 rounded-xl shadow transition text-sm cursor-pointer">
+                    🔔 Panggil Ulang
                 </button>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow border flex flex-col">
+            <h2 class="text-sm font-bold text-slate-700 border-b pb-3 mb-4">Daftar Antrean Menunggu</h2>
+            <div id="list-loket" class="flex-1 overflow-y-auto max-h-80 space-y-2 pr-1">
+                <p class="text-xs text-slate-400 text-center py-8">Tidak ada antrean</p>
             </div>
         </div>
     </main>
 
-    <script>
-        let nomorTerakhir = "-";
-        let poliTerakhir = "-";
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        function updateSisaUI(list) {
-            document.getElementById('sisa-antrian-badge').innerText = `Sisa: ${list ? list.length : 0} Pasien`;
-        }
+        const firebaseConfig = {
+            databaseURL: "https://antrean-puskesmas-e4bc8-default-rtdb.firebaseio.com",
+            projectId: "antrean-puskesmas-e4bc8"
+        };
 
-        window.addEventListener('storage', (e) => {
-            if (e.key === 'antrianData') {
-                let db = JSON.parse(e.newValue);
-                updateSisaUI(db.list);
-            }
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let currentData = { aktif: { nomor: "-", poli: "-" }, list: [], triggerAudio: false };
+
+        const antrianRef = ref(db, 'antrianData');
+        onValue(antrianRef, (snapshot) => {
+            currentData = snapshot.val() || { aktif: { nomor: "-", poli: "-" }, list: [], triggerAudio: false };
+            render();
         });
 
-        let dbAwal = JSON.parse(localStorage.getItem('antrianData')) || { list: [] };
-        updateSisaUI(dbAwal.list);
+        function render() {
+            document.getElementById('nomor-aktif').innerText = currentData.aktif ? currentData.aktif.nomor : "-";
+            document.getElementById('poli-aktif').innerText = currentData.aktif ? `Poli: ${currentData.aktif.poli}` : "-";
 
-        function panggilNext() {
-            let database = JSON.parse(localStorage.getItem('antrianData')) || { list: [] };
-            if (!database.list || database.list.length === 0) {
-                alert("Tidak ada antrean tersisa!");
+            const listContainer = document.getElementById('list-loket');
+            if (!currentData.list || currentData.list.length === 0) {
+                listContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-8">Tidak ada antrean</p>`;
                 return;
             }
 
-            let dipanggil = database.list.shift();
-            nomorTerakhir = dipanggil.nomor;
-            poliTerakhir = dipanggil.poli;
-
-            database.aktif = {
-                nomor: dipanggil.nomor,
-                loket: "Pendaftaran",
-                poli: dipanggil.poli,
-                time: Date.now() // Penanda agar trigger suara selalu aktif
-            };
-            database.triggerAudio = true;
-
-            document.getElementById('current-called').innerText = dipanggil.nomor;
-            document.getElementById('current-poli',).innerText = `Poli: ${dipanggil.poli}`;
-
-            localStorage.setItem('antrianData', JSON.stringify(database));
-            updateSisaUI(database.list);
+            listContainer.innerHTML = currentData.list.map((item) => `
+                <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <span class="font-bold text-slate-700">${item.nomor}</span>
+                    <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">${item.poli}</span>
+                </div>
+            `).join('');
         }
 
-        function panggilUlang() {
-            if (nomorTerakhir === "-") {
-                alert("Belum ada nomor yang dipanggil!");
+        window.panggilBerikutnya = async function() {
+            if (!currentData.list || currentData.list.length === 0) {
+                alert("Daftar antrean kosong.");
                 return;
             }
+            const berikutnya = currentData.list.shift();
+            currentData.aktif = berikutnya;
+            currentData.triggerAudio = true;
 
-            let database = JSON.parse(localStorage.getItem('antrianData')) || {};
-            database.aktif = {
-                nomor: nomorTerakhir,
-                loket: "Pendaftaran",
-                poli: poliTerakhir,
-                time: Date.now() // Penanda waktu baru agar suara panggil ulang pasti bunyi
-            };
-            database.triggerAudio = true;
+            await set(ref(db, 'antrianData'), currentData);
+        };
 
-            localStorage.setItem('antrianData', JSON.stringify(database));
-        }
+        window.panggilUlang = async function() {
+            if (!currentData.aktif || currentData.aktif.nomor === "-") {
+                alert("Belum ada antrean yang dipanggil.");
+                return;
+            }
+            currentData.triggerAudio = true;
+            await set(ref(db, 'antrianData'), currentData);
+        };
+
+        window.resetAntrian = async function() {
+            if (confirm("Yakin ingin mereset seluruh antrean hari ini?")) {
+                await set(ref(db, 'antrianData'), {
+                    aktif: { nomor: "-", poli: "-" },
+                    list: [],
+                    triggerAudio: false
+                });
+            }
+        };
     </script>
 </body>
 </html>
