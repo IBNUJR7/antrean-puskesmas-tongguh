@@ -59,58 +59,43 @@
                 let poliTujuan = document.getElementById('pilih-poli').value;
                 
                 // Ambil data database dari localStorage
-                let rawData = localStorage.getItem('antrianData');
-                let database = { aktif: { nomor: "-" }, list: [] };
+                let database = JSON.parse(localStorage.getItem('antrianData')) || { aktif: { nomor: "-" }, list: [] };
 
-                if (rawData) {
-                    try {
-                        database = JSON.parse(rawData);
-                    } catch (e) {
-                        database = { aktif: { nomor: "-" }, list: [] };
-                    }
-                }
-
-                // Pastikan properti list & aktif ada
                 if (!database.list) database.list = [];
-                if (!database.aktif) database.aktif = { nomor: "-" };
 
-                // Hitung nomor urut berikutnya yang paling aman
-                let angkaMaksimal = 0;
+                // Tentukan nomor urut berikutnya berdasarkan total antrean yang pernah dibuat / ada di list
+                // Kita ambil nomor terakhir dari list atau buat urutan baru yang aman
+                let nomorBaruAngka = 1;
 
-                // Cek dari nomor aktif saat ini
-                if (database.aktif.nomor && database.aktif.nomor !== "-") {
+                if (database.list.length > 0) {
+                    // Ambil elemen terakhir di list untuk melihat nomor terakhirnya
+                    let itemTerakhir = database.list[database.list.length - 1];
+                    let parts = itemTerakhir.nomor.split('-');
+                    if (parts.length > 1) {
+                        let val = parseInt(parts[1], 10);
+                        if (!isNaN(val)) nomorBaruAngka = val + 1;
+                    }
+                } else if (database.aktif && database.aktif.nomor && database.aktif.nomor !== "-") {
+                    // Jika list kosong tapi ada yang sedang aktif dipanggil
                     let parts = database.aktif.nomor.split('-');
                     if (parts.length > 1) {
                         let val = parseInt(parts[1], 10);
-                        if (!isNaN(val) && val > angkaMaksimal) angkaMaksimal = val;
+                        if (!isNaN(val)) nomorBaruAngka = val + 1;
                     }
                 }
 
-                // Cek dari daftar list antrean yang menunggu
-                database.list.forEach(item => {
-                    if (item && item.nomor) {
-                        let parts = item.nomor.split('-');
-                        if (parts.length > 1) {
-                            let val = parseInt(parts[1], 10);
-                            if (!isNaN(val) && val > angkaMaksimal) angkaMaksimal = val;
-                        }
-                    }
-                });
-
-                // Tentukan nomor baru
-                let nomorBaruAngka = angkaMaksimal + 1;
                 let nomorBaruStr = "TGH-" + ("00" + nomorBaruAngka).slice(-3);
 
-                // Masukkan ke array list
+                // HANYA MASUKKAN KE LIST (Menunggu), JANGAN UBAH `aktif` dan JANGAN SET `triggerAudio`
                 database.list.push({
                     nomor: nomorBaruStr,
                     poli: poliTujuan
                 });
 
-                // Simpan kembali ke localStorage
+                // Simpan kembali ke localStorage (tanpa mengganggu suara/display)
                 localStorage.setItem('antrianData', JSON.stringify(database));
 
-                // Ubah tampilan di HP
+                // Ubah tampilan di HP pasien
                 let btn = document.getElementById('btn-ambil');
                 let tiket = document.getElementById('card-tiket');
                 let hasilNomor = document.getElementById('nomor-hasil');
@@ -121,13 +106,11 @@
                     tiket.classList.remove('hidden');
                     hasilNomor.innerText = nomorBaruStr;
                     hasilPoli.innerText = `Poli: ${poliTujuan}`;
-                } else {
-                    alert("Nomor Anda: " + nomorBaruStr);
                 }
 
             } catch (err) {
-                console.error("Error mengambil antrean:", err);
-                alert("Terjadi kesalahan sistem, silakan muat ulang halaman.");
+                console.error("Error:", err);
+                alert("Terjadi kesalahan, silakan coba lagi.");
             }
         }
     </script>

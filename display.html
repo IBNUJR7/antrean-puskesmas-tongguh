@@ -2,41 +2,45 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Display Ruang Tunggu - UPT Puskesmas Tongguh</title>
+    <title>Display Antrean - UPT Puskesmas Tongguh</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-900 text-white h-screen flex flex-col justify-between p-6 font-sans overflow-hidden">
+<body class="bg-slate-900 text-slate-100 h-screen flex flex-col justify-between font-sans overflow-hidden">
     
-    <!-- Banner Pembuka Blokir Audio Browser -->
-    <div id="audio-banner" class="bg-yellow-400 text-slate-900 py-3 px-4 text-center font-extrabold text-sm cursor-pointer shadow-lg rounded-xl mb-3 animate-pulse" onclick="aktifkanAudio()">
-        🔊 KLIK DI SINI SATU KALI UNTUK MENGAKTIFKAN SUARA PANGGILAN DI TV INI!
+    <!-- Banner Aktivasi Audio (Opsional jika browser memblokir suara otomatis) -->
+    <div id="audio-banner" onclick="aktifkanAudio()" class="bg-amber-500 text-slate-950 px-4 py-2 text-center text-xs font-bold cursor-pointer hover:bg-amber-400 transition">
+        🔊 Klik di sini untuk mengaktifkan suara Display TV
     </div>
 
-    <header class="bg-emerald-700 py-3.5 px-8 rounded-xl flex justify-between items-center shadow-lg">
-        <h1 class="text-2xl font-bold tracking-wide">RUANG TUNGGU UPT PUSKESMAS TONGGUH</h1>
-        <div id="clock" class="text-xl font-mono font-semibold"></div>
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 py-4 px-8 flex justify-between items-center shadow-lg">
+        <h1 class="text-2xl font-black text-emerald-400 tracking-wide">UPT PUSKESMAS TONGGUH</h1>
+        <div id="clock" class="text-xl font-bold text-slate-300">00:00:00</div>
     </header>
 
-    <main class="grid grid-cols-12 gap-6 my-auto flex-1 py-4">
-        <!-- Tampilan Nomor Utama -->
-        <div class="col-span-8 bg-slate-800 border-4 border-emerald-500 rounded-3xl p-8 text-center flex flex-col justify-center shadow-2xl">
-            <h2 class="text-3xl text-emerald-400 font-semibold mb-2">NOMOR ANTREAN DIPANGGIL</h2>
-            <div id="nomor-tampil" class="text-[11rem] font-black text-yellow-400 my-2 leading-none">---</div>
-            <div id="loket-tampil" class="text-3xl font-bold bg-emerald-600/30 py-3 rounded-2xl border border-emerald-500/30">Silakan Menuju Pendaftaran</div>
-        </div>
-
-        <!-- Daftar Sisa Antrean -->
-        <div class="col-span-4 bg-slate-800 border border-slate-700 rounded-3xl p-6 flex flex-col shadow-xl">
-            <h3 class="text-xl font-bold mb-3 border-b border-slate-700 pb-2 text-emerald-300">Antrean Berikutnya</h3>
-            <div id="list-antrian" class="space-y-2.5 overflow-y-auto flex-1 pr-1">
-                <p class="text-slate-500 text-center mt-20 text-base italic">Belum ada antrean</p>
+    <!-- Main Content -->
+    <main class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 p-6 h-[calc(100vh-120px)]">
+        
+        <!-- Kolom Kiri & Tengah: Nomor Sedang Dipanggil (Lebar 2 Kolom) -->
+        <div class="md:col-span-2 bg-slate-800 border border-slate-700 rounded-3xl p-8 flex flex-col justify-center items-center text-center shadow-2xl">
+            <h2 class="text-slate-400 font-bold text-2xl uppercase tracking-wider mb-4">Nomor Antrean Sedang Dipanggil</h2>
+            <div id="nomor-tampil" class="text-9xl font-black text-yellow-400 my-4 tracking-wider">-</div>
+            <div id="loket-tampil" class="text-2xl font-bold text-emerald-300 bg-slate-900/60 py-3 px-8 rounded-2xl border border-slate-700">
+                Menunggu Panggilan
             </div>
         </div>
-    </main>
 
-    <footer class="text-center text-xs text-slate-500 pb-1">
-        Sistem Antrean Digital &bull; UPT Puskesmas Tongguh
-    </footer>
+        <!-- Kolom Kanan: Daftar Antrean Menunggu -->
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
+            <h3 class="text-lg font-bold text-slate-300 border-b border-slate-700 pb-3 mb-4 flex justify-between items-center">
+                <span>Daftar Antrean Menunggu</span>
+            </h3>
+            <div id="list-antrian" class="flex-1 overflow-y-auto space-y-3 pr-1">
+                <p class="text-slate-500 text-center mt-20 text-base italic">Antrean kosong</p>
+            </div>
+        </div>
+
+    </main>
 
     <script>
         function aktifkanAudio() {
@@ -51,6 +55,7 @@
             document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID');
         }, 1000);
 
+        // --- BAGIAN INI YANG DIPERBAIKI ---
         window.addEventListener('storage', (event) => {
             if (event.key === 'antrianData') {
                 const data = JSON.parse(event.newValue);
@@ -60,6 +65,10 @@
                 if (data.triggerAudio && data.aktif && data.aktif.nomor !== '-') {
                     // Bunyikan suara dengan format tujuan Pendaftaran
                     playAudio(data.aktif.nomor, data.aktif.poli);
+                    
+                    // PENTING: Matikan triggerAudio agar tidak bunyi terus menerus saat HP nambah antrean
+                    data.triggerAudio = false;
+                    localStorage.setItem('antrianData', JSON.stringify(data));
                 }
             }
         });
@@ -98,7 +107,6 @@
                 window.speechSynthesis.cancel(); // Hentikan suara sebelumnya agar tidak tumpang tindih
                 
                 let nomorSpasi = nomor.split('').join(' ');
-                // Kalimat suara yang dibacakan mesin:
                 const text = `Nomor antrean, ${nomorSpasi}, silakan menuju ke Pendaftaran, ${poli}`;
                 
                 const utterance = new SpeechSynthesisUtterance(text);
