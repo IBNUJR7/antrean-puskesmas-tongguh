@@ -4,8 +4,59 @@
     <meta charset="UTF-8">
     <title>Ambil Antrean - UPT Puskesmas Tongguh</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDK v10 (Modular) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, get, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // Konfigurasi Firebase Anda (Sesuaikan ID project Anda: antrean-puskesmas-e4bc8)
+        const firebaseConfig = {
+            databaseURL: "https://antrean-puskesmas-e4bc8-default-rtdb.firebaseio.com/"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Ekspor fungsi ke global agar bisa dipanggil tombol HTML
+        window.prosesAmbil = async function() {
+            const poliPilihan = document.getElementById('pilih-poli').value;
+            const counterRef = ref(db, 'counterGlobal');
+            const listRef = ref(db, 'listAntrean');
+
+            try {
+                // Gunakan Transaction agar nomor antrean aman dari bentrok real-time
+                const result = await runTransaction(counterRef, (currentCount) => {
+                    return (currentCount || 0) + 1;
+                });
+
+                if (result.committed) {
+                    const num = result.snapshot.val();
+                    const nomorBaru = `TGH-${String(num).padStart(3, '0')}`;
+                    const waktuSekarang = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+
+                    // Ambil data list yang ada lalu tambahkan yang baru
+                    const snapshot = await get(listRef);
+                    let listData = snapshot.val() || [];
+                    listData.push({ nomor: nomorBaru, poli: poliPilihan, waktu: waktuSekarang });
+                    
+                    await set(listRef, listData);
+
+                    // Isi Data ke Struk 4x6 cm
+                    document.getElementById('print-nomor').innerText = nomorBaru;
+                    document.getElementById('print-poli').innerText = poliPilihan;
+                    document.getElementById('print-waktu').innerText = waktuSekarang;
+
+                    // Jalankan Dialog Print Thermal
+                    window.print();
+                }
+            } catch (error) {
+                console.error("Gagal mengambil antrean:", error);
+                alert("Terjadi kesalahan koneksi ke server database.");
+            }
+        };
+    </script>
     <style>
-        /* Pengaturan Khusus Ukuran Kertas Thermal Struk */
+        /* Pengaturan Khusus Ukuran Kertas Thermal Struk 4x6 cm */
         @media print {
             body * {
                 visibility: hidden;
@@ -29,34 +80,43 @@
         }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4 font-sans">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4 font-sans">
 
     <!-- Interface Tombol Ambil Nomor -->
-    <div class="bg-white rounded-2xl shadow-xl p-8 border border-slate-200 max-w-md w-full space-y-6 text-center">
+    <div class="bg-slate-800 rounded-2xl shadow-xl p-6 border border-slate-700 max-w-sm w-full space-y-5 text-center">
         <div>
-            <h1 class="font-bold text-slate-800 text-xl">AMBIL NOMOR ANTREAN</h1>
-            <p class="text-xs text-slate-500 mt-1">UPT Puskesmas Tongguh</p>
+            <h1 class="font-bold text-white text-lg">AMBIL NOMOR ANTREAN</h1>
+            <p class="text-xs text-slate-400 mt-1">UPT Puskesmas Tongguh</p>
         </div>
         
-        <button onclick="prosesAmbil()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-5 px-6 rounded-2xl shadow-lg transition text-lg flex items-center justify-center space-x-2">
-            <span>🎫 Cetak Nomor Antrean Baru</span>
-        </button>
-
-        <div id="info-terakhir" class="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border">
-            Nomor Berikutnya: <span id="label-berikutnya" class="font-bold text-emerald-700">TGH-001</span>
+        <!-- Dropdown Pilih Poli -->
+        <div class="text-left">
+            <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Pilih Poli Tujuan:</label>
+            <select id="pilih-poli" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-3 text-sm focus:outline-none focus:border-emerald-500 font-medium">
+                <option value="Poli Umum">Poli Umum</option>
+                <option value="Poli Gigi">Poli Gigi</option>
+                <option value="KIA / KB">Poli KIA / KB</option>
+                <option value="Lansia">Poli Lansia</option>
+                <option value="UGD & Ranap">UGD & Ranap</option>
+                <option value="Imunisasi">Imunisasi</option>
+            </select>
         </div>
+
+        <button onclick="prosesAmbil()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition text-base flex items-center justify-center space-x-2">
+            <span>🎫 Cetak Karcis Antrean</span>
+        </button>
     </div>
 
     <!-- Layout Struk Fisik Ukuran 4x6 cm (Khusus Printer) -->
-    <div id="print-area" class="hidden print:block text-black font-mono text-center flex flex-col justify-between">
+    <div id="print-area" class="hidden print:block text-black font-mono text-center flex flex-col justify-between bg-white">
         <div>
             <div style="font-size: 9px; font-weight: bold; line-height: 1.1;">UPT PUSKESMAS TONGGUH</div>
             <div style="font-size: 7px;">Jalan Raya Aermata-Buduran</div>
             <div style="border-bottom: 1px dashed #000; margin: 3px 0;"></div>
             
             <div style="font-size: 8px; margin-top: 2px;">NOMOR ANTREAN</div>
-            <div id="print-nomor" style="font-size: 32px; font-weight: 900; line-height: 1; margin: 2px 0;">TGH-001</div>
-            <div style="font-size: 10px; font-weight: bold; text-transform: uppercase;">PENDAFTARAN</div>
+            <div id="print-nomor" style="font-size: 30px; font-weight: 900; line-height: 1; margin: 2px 0;">TGH-001</div>
+            <div id="print-poli" style="font-size: 9px; font-weight: bold; text-transform: uppercase; background: #eee; padding: 2px; border-radius: 2px;">POLI UMUM</div>
         </div>
 
         <div>
@@ -66,44 +126,5 @@
         </div>
     </div>
 
-    <script>
-        // Cek nomor berikutnya saat halaman dimuat
-        function updateInfoLabel() {
-            let database = JSON.parse(localStorage.getItem('antrianData')) || { counterGlobal: 1 };
-            let nextNum = database.counterGlobal || 1;
-            document.getElementById('label-berikutnya').innerText = `TGH-${String(nextNum).padStart(3, '0')}`;
-        }
-
-        window.onload = updateInfoLabel;
-
-        function prosesAmbil() {
-            let database = JSON.parse(localStorage.getItem('antrianData')) || { 
-                aktif: {nomor: '-', loket: '-', poli: '-'}, 
-                list: [], 
-                counterGlobal: 1 
-            };
-            
-            if (!database.counterGlobal) database.counterGlobal = 1;
-
-            let num = database.counterGlobal++;
-            let nomorBaru = `TGH-${String(num).padStart(3, '0')}`;
-
-            database.list.push({ nomor: nomorBaru, poli: "Pendaftaran" });
-            database.triggerAudio = false;
-            
-            // Simpan ke localStorage agar tersinkronisasi ke loket & display TV
-            localStorage.setItem('antrianData', JSON.stringify(database));
-
-            // Update info preview di layar
-            updateInfoLabel();
-
-            // Isi Data ke Struk 4x6 cm
-            document.getElementById('print-nomor').innerText = nomorBaru;
-            document.getElementById('print-waktu').innerText = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
-
-            // Jalankan Dialog Print Thermal
-            window.print();
-        }
-    </script>
 </body>
 </html>
