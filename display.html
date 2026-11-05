@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Display Ruang Tunggu - UPT Puskesmas Tongguh</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white h-screen flex flex-col justify-between p-6 font-sans overflow-hidden">
+    
+    <!-- Banner Pembuka Blokir Audio Browser -->
+    <div id="audio-banner" class="bg-yellow-400 text-slate-900 py-3 px-4 text-center font-extrabold text-sm cursor-pointer shadow-lg rounded-xl mb-3 animate-pulse" onclick="aktifkanAudio()">
+        🔊 KLIK DI SINI SATU KALI UNTUK MENGAKTIFKAN SUARA PANGGILAN DI TV INI!
+    </div>
+
+    <header class="bg-emerald-700 py-3.5 px-8 rounded-xl flex justify-between items-center shadow-lg">
+        <h1 class="text-2xl font-bold tracking-wide">RUANG TUNGGU UPT PUSKESMAS TONGGUH</h1>
+        <div id="clock" class="text-xl font-mono font-semibold"></div>
+    </header>
+
+    <main class="grid grid-cols-12 gap-6 my-auto flex-1 py-4">
+        <!-- Tampilan Nomor Utama -->
+        <div class="col-span-8 bg-slate-800 border-4 border-emerald-500 rounded-3xl p-8 text-center flex flex-col justify-center shadow-2xl">
+            <h2 class="text-3xl text-emerald-400 font-semibold mb-2">NOMOR ANTREAN DIPANGGIL</h2>
+            <div id="nomor-tampil" class="text-[11rem] font-black text-yellow-400 my-2 leading-none">---</div>
+            <div id="loket-tampil" class="text-3xl font-bold bg-emerald-600/30 py-3 rounded-2xl border border-emerald-500/30">Silakan Menuju Pendaftaran</div>
+        </div>
+
+        <!-- Daftar Sisa Antrean -->
+        <div class="col-span-4 bg-slate-800 border border-slate-700 rounded-3xl p-6 flex flex-col shadow-xl">
+            <h3 class="text-xl font-bold mb-3 border-b border-slate-700 pb-2 text-emerald-300">Antrean Berikutnya</h3>
+            <div id="list-antrian" class="space-y-2.5 overflow-y-auto flex-1 pr-1">
+                <p class="text-slate-500 text-center mt-20 text-base italic">Belum ada antrean</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-center text-xs text-slate-500 pb-1">
+        Sistem Antrean Digital &bull; UPT Puskesmas Tongguh
+    </footer>
+
+    <script>
+        function aktifkanAudio() {
+            if ('speechSynthesis' in window) {
+                let test = new SpeechSynthesisUtterance("");
+                window.speechSynthesis.speak(test);
+            }
+            document.getElementById('audio-banner').style.display = 'none';
+        }
+
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID');
+        }, 1000);
+
+        window.addEventListener('storage', (event) => {
+            if (event.key === 'antrianData') {
+                const data = JSON.parse(event.newValue);
+                updateDisplay(data.aktif);
+                updateList(data.list);
+                
+                if (data.triggerAudio && data.aktif && data.aktif.nomor !== '-') {
+                    // Bunyikan suara dengan format tujuan Pendaftaran
+                    playAudio(data.aktif.nomor, data.aktif.poli);
+                }
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            let dataAwal = JSON.parse(localStorage.getItem('antrianData'));
+            if (dataAwal) {
+                updateDisplay(dataAwal.aktif);
+                updateList(dataAwal.list);
+            }
+        });
+
+        function updateDisplay(aktif) {
+            if (!aktif) return;
+            document.getElementById('nomor-tampil').innerText = aktif.nomor;
+            document.getElementById('loket-tampil').innerText = `Silakan Menuju Pendaftaran (${aktif.poli})`;
+        }
+
+        function updateList(list) {
+            const container = document.getElementById('list-antrian');
+            if (!list || list.length === 0) {
+                container.innerHTML = `<p class="text-slate-500 text-center mt-20 text-base italic">Antrean kosong</p>`;
+                return;
+            }
+            container.innerHTML = list.map(item => `
+                <div class="bg-slate-700/50 p-3 rounded-xl flex justify-between items-center border border-slate-600 shadow-sm">
+                    <span class="text-2xl font-bold text-emerald-300">${item.nomor}</span>
+                    <span class="text-xs bg-slate-600 px-2.5 py-1 rounded-md text-slate-200 font-medium">${item.poli}</span>
+                </div>
+            `).join('');
+        }
+
+        // Suara Panggilan Otomatis (Format: Nomor -> Tujuan Pendaftaran -> Poli)
+        function playAudio(nomor, poli) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Hentikan suara sebelumnya agar tidak tumpang tindih
+                
+                let nomorSpasi = nomor.split('').join(' ');
+                // Kalimat suara yang dibacakan mesin:
+                const text = `Nomor antrean, ${nomorSpasi}, silakan menuju ke Pendaftaran, ${poli}`;
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'id-ID';
+                utterance.rate = 0.85; 
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+    </script>
+</body>
+</html>

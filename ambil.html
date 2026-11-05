@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Ambil Antrean - UPT Puskesmas Tongguh</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Pengaturan Khusus Ukuran Kertas Thermal Struk */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #print-area, #print-area * {
+                visibility: visible;
+            }
+            #print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 4cm;
+                height: 6cm;
+                padding: 2mm;
+                box-sizing: border-box;
+            }
+            @page {
+                size: 4cm 6cm;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4 font-sans">
+
+    <!-- Interface Tombol Ambil Nomor -->
+    <div class="bg-white rounded-2xl shadow-xl p-8 border border-slate-200 max-w-md w-full space-y-6 text-center">
+        <div>
+            <h1 class="font-bold text-slate-800 text-xl">AMBIL NOMOR ANTREAN</h1>
+            <p class="text-xs text-slate-500 mt-1">UPT Puskesmas Tongguh</p>
+        </div>
+        
+        <button onclick="prosesAmbil()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-5 px-6 rounded-2xl shadow-lg transition text-lg flex items-center justify-center space-x-2">
+            <span>🎫 Cetak Nomor Antrean Baru</span>
+        </button>
+
+        <div id="info-terakhir" class="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border">
+            Nomor Berikutnya: <span id="label-berikutnya" class="font-bold text-emerald-700">TGH-001</span>
+        </div>
+    </div>
+
+    <!-- Layout Struk Fisik Ukuran 4x6 cm (Khusus Printer) -->
+    <div id="print-area" class="hidden print:block text-black font-mono text-center flex flex-col justify-between">
+        <div>
+            <div style="font-size: 9px; font-weight: bold; line-height: 1.1;">UPT PUSKESMAS TONGGUH</div>
+            <div style="font-size: 7px;">Jalan Raya Aermata-Buduran</div>
+            <div style="border-bottom: 1px dashed #000; margin: 3px 0;"></div>
+            
+            <div style="font-size: 8px; margin-top: 2px;">NOMOR ANTREAN</div>
+            <div id="print-nomor" style="font-size: 32px; font-weight: 900; line-height: 1; margin: 2px 0;">TGH-001</div>
+            <div style="font-size: 10px; font-weight: bold; text-transform: uppercase;">PENDAFTARAN</div>
+        </div>
+
+        <div>
+            <div style="border-bottom: 1px dashed #000; margin: 3px 0;"></div>
+            <div id="print-waktu" style="font-size: 7px;">05/11/2026 14:00</div>
+            <div style="font-size: 7px; margin-top: 1px;">Harap menunggu dipanggil</div>
+        </div>
+    </div>
+
+    <script>
+        // Cek nomor berikutnya saat halaman dimuat
+        function updateInfoLabel() {
+            let database = JSON.parse(localStorage.getItem('antrianData')) || { counterGlobal: 1 };
+            let nextNum = database.counterGlobal || 1;
+            document.getElementById('label-berikutnya').innerText = `TGH-${String(nextNum).padStart(3, '0')}`;
+        }
+
+        window.onload = updateInfoLabel;
+
+        function prosesAmbil() {
+            let database = JSON.parse(localStorage.getItem('antrianData')) || { 
+                aktif: {nomor: '-', loket: '-', poli: '-'}, 
+                list: [], 
+                counterGlobal: 1 
+            };
+            
+            if (!database.counterGlobal) database.counterGlobal = 1;
+
+            let num = database.counterGlobal++;
+            let nomorBaru = `TGH-${String(num).padStart(3, '0')}`;
+
+            database.list.push({ nomor: nomorBaru, poli: "Pendaftaran" });
+            database.triggerAudio = false;
+            
+            // Simpan ke localStorage agar tersinkronisasi ke loket & display TV
+            localStorage.setItem('antrianData', JSON.stringify(database));
+
+            // Update info preview di layar
+            updateInfoLabel();
+
+            // Isi Data ke Struk 4x6 cm
+            document.getElementById('print-nomor').innerText = nomorBaru;
+            document.getElementById('print-waktu').innerText = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+
+            // Jalankan Dialog Print Thermal
+            window.print();
+        }
+    </script>
+</body>
+</html>
