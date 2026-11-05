@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ambil Antrean Mandiri - UPT Puskesmas Tongguh</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between font-sans p-6">
+
+    <!-- Header -->
+    <header class="text-center py-4">
+        <h1 class="text-2xl font-black text-emerald-400 tracking-wide">UPT PUSKESMAS TONGGUH</h1>
+        <p class="text-xs text-slate-400 mt-1">Sistem Pendaftaran Antrean Mandiri via Ponsel</p>
+    </header>
+
+    <!-- Main Content / Kartu Ambil Antrean -->
+    <main class="max-w-md mx-auto w-full my-auto text-center bg-slate-800 border border-slate-700 rounded-3xl p-8 shadow-2xl">
+        <div class="bg-emerald-600/20 text-emerald-400 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2H5z"></path></svg>
+        </div>
+
+        <h2 class="text-xl font-bold text-white mb-2">Ambil Nomor Antrean Anda</h2>
+        <p class="text-xs text-slate-400 mb-6 leading-relaxed">Pilih poli tujuan Anda, lalu tekan tombol di bawah untuk mendapatkan nomor antrean.</p>
+
+        <!-- Pilihan Poli -->
+        <div class="mb-6 text-left">
+            <label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Pilih Poli Tujuan:</label>
+            <select id="pilih-poli" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-3 text-sm focus:outline-none focus:border-emerald-500 font-medium">
+                <option value="Umum">Poli Umum</option>
+                <option value="Gigi">Poli Gigi</option>
+                <option value="KIA/KB">Poli KIA / KB</option>
+                <option value="Lansia">Poli Lansia</option>
+            </select>
+        </div>
+
+        <!-- Tombol Ambil -->
+        <button onclick="ambilNomorMandiri()" id="btn-ambil" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-2xl shadow-lg transition text-base tracking-wider cursor-pointer">
+            🎫 AMBIL NOMOR SEKARANG
+        </button>
+
+        <!-- Hasil Tiket (Hidden Awalnya) -->
+        <div id="card-tiket" class="hidden mt-6 bg-slate-900 border-2 border-emerald-500 rounded-2xl p-6 text-center">
+            <span class="text-xs text-slate-400 uppercase tracking-widest block mb-1">Nomor Antrean Anda</span>
+            <div id="nomor-hasil" class="text-6xl font-black text-yellow-400 my-2">TGH-001</div>
+            <div id="poli-hasil" class="text-sm font-bold text-emerald-300 bg-emerald-900/50 py-1.5 px-3 rounded-lg inline-block mb-3">Poli Umum</div>
+            <p class="text-xs text-slate-400 mt-2">Silakan screenshot layar ini dan tunggu panggilan di ruang tunggu.</p>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center text-xs text-slate-500 py-4">
+        &copy; 2026 UPT Puskesmas Tongguh
+    </footer>
+
+    <script>
+        function ambilNomorMandiri() {
+            try {
+                let poliTujuan = document.getElementById('pilih-poli').value;
+                
+                // Ambil data database dari localStorage
+                let rawData = localStorage.getItem('antrianData');
+                let database = { aktif: { nomor: "-" }, list: [] };
+
+                if (rawData) {
+                    try {
+                        database = JSON.parse(rawData);
+                    } catch (e) {
+                        database = { aktif: { nomor: "-" }, list: [] };
+                    }
+                }
+
+                // Pastikan properti list & aktif ada
+                if (!database.list) database.list = [];
+                if (!database.aktif) database.aktif = { nomor: "-" };
+
+                // Hitung nomor urut berikutnya yang paling aman
+                let angkaMaksimal = 0;
+
+                // Cek dari nomor aktif saat ini
+                if (database.aktif.nomor && database.aktif.nomor !== "-") {
+                    let parts = database.aktif.nomor.split('-');
+                    if (parts.length > 1) {
+                        let val = parseInt(parts[1], 10);
+                        if (!isNaN(val) && val > angkaMaksimal) angkaMaksimal = val;
+                    }
+                }
+
+                // Cek dari daftar list antrean yang menunggu
+                database.list.forEach(item => {
+                    if (item && item.nomor) {
+                        let parts = item.nomor.split('-');
+                        if (parts.length > 1) {
+                            let val = parseInt(parts[1], 10);
+                            if (!isNaN(val) && val > angkaMaksimal) angkaMaksimal = val;
+                        }
+                    }
+                });
+
+                // Tentukan nomor baru
+                let nomorBaruAngka = angkaMaksimal + 1;
+                let nomorBaruStr = "TGH-" + ("00" + nomorBaruAngka).slice(-3);
+
+                // Masukkan ke array list
+                database.list.push({
+                    nomor: nomorBaruStr,
+                    poli: poliTujuan
+                });
+
+                // Simpan kembali ke localStorage
+                localStorage.setItem('antrianData', JSON.stringify(database));
+
+                // Ubah tampilan di HP
+                let btn = document.getElementById('btn-ambil');
+                let tiket = document.getElementById('card-tiket');
+                let hasilNomor = document.getElementById('nomor-hasil');
+                let hasilPoli = document.getElementById('poli-hasil');
+
+                if (btn && tiket && hasilNomor && hasilPoli) {
+                    btn.style.display = 'none';
+                    tiket.classList.remove('hidden');
+                    hasilNomor.innerText = nomorBaruStr;
+                    hasilPoli.innerText = `Poli: ${poliTujuan}`;
+                } else {
+                    alert("Nomor Anda: " + nomorBaruStr);
+                }
+
+            } catch (err) {
+                console.error("Error mengambil antrean:", err);
+                alert("Terjadi kesalahan sistem, silakan muat ulang halaman.");
+            }
+        }
+    </script>
+</body>
+</html>
